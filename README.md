@@ -1,6 +1,6 @@
 # opensimulator-libopenmetaverse
 
-## This is my first test 
+## This is my first test VS2019+
 
 libOpenMetaverse Library Fork for OpenSimulator (version >= 0.9.1.0)
 
