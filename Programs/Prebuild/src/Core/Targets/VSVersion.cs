@@ -23,15 +23,6 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY O
 */
 #endregion
 
-#region CVS Information
-/*
- * $Source$
- * $Author: (local) $
- * $Date: 2008-04-16 16:32:42 -0600 (Wed, 16 Apr 2008) $
- * $Revision: 177M $
- */
-#endregion
-
 namespace Prebuild.Core.Targets
 {
 	/// <summary>
@@ -55,13 +46,23 @@ namespace Prebuild.Core.Targets
 		/// Visual Studio 2008 
 		/// </summary>
 		VS90,
-        /// <summary>
-        /// Visual Studio 2010
-        /// </summary>
-        VS10,
-        /// <summary>
-        /// Visual Studio 2012
-        /// </summary>
-        VS11,
+		/// <summary>
+		/// Visual Studio 2010 
+		/// </summary>
+		VS10,
+		/// <summary>
+		/// Visual Studio 2012 
+		/// </summary>
+		VS11,
+		/// <summary>
+		/// Visual Studio 2013 
+		/// </summary>
+		VS12,
+		/// <summary>
+		/// Visual Studio 2015 
+		/// </summary>
+		VS15,
+		VS17,
+		VS19
 	}
 }

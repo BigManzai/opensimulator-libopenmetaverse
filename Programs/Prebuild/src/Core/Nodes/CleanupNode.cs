@@ -1,6 +1,6 @@
 #region BSD License
 /*
-Copyright (c) 2004-2005 Matthew Holmes (matthew@wildfiregames.com), Dan Moorehead (dan05a@gmail.com)
+Copyright (c) 2007 C.J. Adams-Collier (cjac@colliertech.org)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
@@ -24,26 +24,35 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY O
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Xml;
 
 using Prebuild.Core.Attributes;
+using Prebuild.Core.Interfaces;
 
-namespace Prebuild.Core.Targets
+namespace Prebuild.Core.Nodes
 {
-	/// <summary>
-	/// 
-	/// </summary>
-	[Target("vs2002")]
-	public class VS2002Target : VS2003Target
-	{
-		#region Private Methods
+    [DataNode("Cleanup")]
+    public class CleanupNode : DataNode
+    {
+		#region Fields
 
-		private void SetVS2002()
+		private List<CleanFilesNode> m_CleanFiles = new List<CleanFilesNode>();
+
+		#endregion
+
+		#region Properties
+
+		/// <summary>
+		/// Gets the signature.
+		/// </summary>
+		/// <value>The signature.</value>
+        public List<CleanFilesNode> CleanFiles
 		{
-			this.SolutionVersion = "7.00";
-			this.ProductVersion = "7.0.9254";
-			this.SchemaVersion = "1.0";
-			this.VersionName = "2002";
-			this.Version = VSVersion.VS70;
+			get
+			{
+				return m_CleanFiles;
+			}
 		}
 
 		#endregion
@@ -51,37 +60,26 @@ namespace Prebuild.Core.Targets
 		#region Public Methods
 
 		/// <summary>
-		/// Writes the specified kern.
+		/// Parses the specified node.
 		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Write(Kernel kern)
+		/// <param name="node">The node.</param>
+		public override void Parse(XmlNode node)
 		{
-			SetVS2002();
-			base.Write(kern);
-		}
-
-		/// <summary>
-		/// Cleans the specified kern.
-		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Clean(Kernel kern)
-		{
-			SetVS2002();
-			base.Clean(kern);
-		}
-
-		/// <summary>
-		/// Gets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		public override string Name
-		{
-			get
+			if( node == null )
 			{
-				return "vs2002";
+				throw new ArgumentNullException("node");
 			}
+
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                IDataNode dataNode = Kernel.Instance.ParseNode(child, this);
+                if (dataNode is CleanFilesNode)
+                {
+                    m_CleanFiles.Add((CleanFilesNode)dataNode);
+                }
+            }
 		}
 
 		#endregion
-	}
+    }
 }

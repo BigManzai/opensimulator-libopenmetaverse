@@ -1,6 +1,6 @@
 #region BSD License
 /*
-Copyright (c) 2004-2005 Matthew Holmes (matthew@wildfiregames.com), Dan Moorehead (dan05a@gmail.com)
+Copyright (c) 2007 C.J. Adams-Collier (cjac@colliertech.org)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
@@ -24,64 +24,57 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY O
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Xml;
 
 using Prebuild.Core.Attributes;
+using Prebuild.Core.Interfaces;
+using Prebuild.Core.Utilities;
 
-namespace Prebuild.Core.Targets
+namespace Prebuild.Core.Nodes
 {
-	/// <summary>
-	/// 
-	/// </summary>
-	[Target("vs2002")]
-	public class VS2002Target : VS2003Target
-	{
-		#region Private Methods
+    [DataNode("CleanFiles")]
+    public class CleanFilesNode : DataNode
+    {
+        #region Fields
 
-		private void SetVS2002()
-		{
-			this.SolutionVersion = "7.00";
-			this.ProductVersion = "7.0.9254";
-			this.SchemaVersion = "1.0";
-			this.VersionName = "2002";
-			this.Version = VSVersion.VS70;
-		}
+        private string m_Pattern;
 
-		#endregion
+        #endregion
 
-		#region Public Methods
+        #region Properties
 
-		/// <summary>
-		/// Writes the specified kern.
-		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Write(Kernel kern)
-		{
-			SetVS2002();
-			base.Write(kern);
-		}
+        /// <summary>
+        /// Gets the signature.
+        /// </summary>
+        /// <value>The signature.</value>
+        public string Pattern
+        {
+            get
+            {
+                return m_Pattern;
+            }
+        }
 
-		/// <summary>
-		/// Cleans the specified kern.
-		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Clean(Kernel kern)
-		{
-			SetVS2002();
-			base.Clean(kern);
-		}
+        #endregion
 
-		/// <summary>
-		/// Gets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		public override string Name
-		{
-			get
-			{
-				return "vs2002";
-			}
-		}
+        #region Public Methods
 
-		#endregion
-	}
+        /// <summary>
+        /// Parses the specified node.
+        /// </summary>
+        /// <param name="node">The node.</param>
+        public override void Parse(XmlNode node)
+        {
+            if (node == null)
+            {
+                throw new ArgumentNullException("node");
+            }
+
+            m_Pattern = Helper.AttributeValue(node, "pattern", String.Empty); ;
+            m_Pattern = m_Pattern.Trim();
+        }
+
+        #endregion
+    }
 }

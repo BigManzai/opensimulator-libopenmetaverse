@@ -36,29 +36,17 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #endregion
 
-#region CVS Information
-/*
- * $Source$
- * $Author: dmoonfire $
- * $Date: 2008-12-09 18:04:22 -0800 (Tue, 09 Dec 2008) $
- * $Revision: 279 $
- */
-#endregion
+#define NO_VALIDATE
 
 using System;
-using System.Diagnostics;
-using System.Collections;
-using System.Collections.Specialized;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Xml;
 using System.Xml.Schema;
-using System.Text;
-
 using Prebuild.Core.Attributes;
 using Prebuild.Core.Interfaces;
 using Prebuild.Core.Nodes;
-using Prebuild.Core.Parse;
 using Prebuild.Core.Utilities;
 
 namespace Prebuild.Core 
@@ -80,37 +68,38 @@ namespace Prebuild.Core
 
 		#region Fields
 
-		private static Kernel m_Instance = new Kernel();
+		private static readonly Kernel m_Instance = new Kernel();
 
 		/// <summary>
 		/// This must match the version of the schema that is embeeded
 		/// </summary>
-		private static string m_SchemaVersion = "1.7";
-		private static string m_Schema = "prebuild-" + m_SchemaVersion + ".xsd";
-		private static string m_SchemaURI = "http://dnpb.sourceforge.net/schemas/" + m_Schema;
+		private const string m_SchemaVersion = "1.10";
+		private const string m_Schema = "prebuild-" + m_SchemaVersion + ".xsd";
+		private const string m_SchemaURI = "http://dnpb.sourceforge.net/schemas/" + m_Schema;
 		bool disposed;
 		private Version m_Version;
-		private string m_Revision = "";
+		private const string m_Revision = "w";
 		private CommandLineCollection m_CommandLine;
 		private Log m_Log;
 		private CurrentDirectory m_CurrentWorkingDirectory;
 		private XmlSchemaCollection m_Schemas;
-        
-		private Hashtable m_Targets;
-		private Hashtable m_Nodes;
-        
-		ArrayList m_Solutions;        
-		string m_Target;
+
+        private readonly Dictionary<string, ITarget> m_Targets = new Dictionary<string, ITarget>();
+        private readonly Dictionary<string, NodeEntry> m_Nodes = new Dictionary<string, NodeEntry>();
+
+	    readonly List<SolutionNode> m_Solutions = new List<SolutionNode>();
+        string m_Target;
+        bool cmdlineTargetFramework;
+        FrameworkVersion m_TargetFramework; //Overrides all project settings
+        string m_Conditionals; //Adds to all project settings
+        public string ForcedConditionals { get { return m_Conditionals; } }
 		string m_Clean;
 		string[] m_RemoveDirectories;
-		string m_CurrentFile;
-		XmlDocument m_CurrentDoc;
+	    XmlDocument m_CurrentDoc;
 		bool m_PauseAfterFinish;
 		string[] m_ProjectGroups;
-		StringCollection m_Refs;
 
-		
-		#endregion
+	    #endregion
 
 		#region Constructors
 
@@ -174,7 +163,7 @@ namespace Prebuild.Core
 		/// Gets the targets.
 		/// </summary>
 		/// <value>The targets.</value>
-		public Hashtable Targets
+		public Dictionary<string, ITarget> Targets
 		{
 			get
 			{
@@ -210,7 +199,7 @@ namespace Prebuild.Core
 		/// Gets the solutions.
 		/// </summary>
 		/// <value>The solutions.</value>
-		public ArrayList Solutions
+		public List<SolutionNode> Solutions
 		{
 			get
 			{
@@ -235,7 +224,7 @@ namespace Prebuild.Core
 
 		#region Private Methods
 
-		private void RemoveDirectories(string rootDir, string[] dirNames) 
+		private static void RemoveDirectories(string rootDir, string[] dirNames) 
 		{
 			foreach(string dir in Directory.GetDirectories(rootDir)) 
 			{
@@ -270,7 +259,7 @@ namespace Prebuild.Core
 
 		private void LoadSchema()
 		{
-			Assembly assembly = this.GetType().Assembly;
+			Assembly assembly = GetType().Assembly;
 			Stream stream = assembly.GetManifestResourceStream("Prebuild.data." + m_Schema);
 			if(stream == null) 
 			{
@@ -330,30 +319,33 @@ namespace Prebuild.Core
 
 		private void LogBanner()
 		{
-                  m_Log.Write("Prebuild v" + this.Version);
-                  m_Log.Write("Copyright (c) 2004-2008");
-                  m_Log.Write("Matthew Holmes (matthew@wildfiregames.com),");
-                  m_Log.Write("Dan Moorehead (dan05a@gmail.com),");
-                  m_Log.Write("David Hudson (jendave@yahoo.com),");
-                  m_Log.Write("Rob Loach (http://www.robloach.net),");
-                  m_Log.Write("C.J. Adams-Collier (cjac@colliertech.org),");
-
-                  m_Log.Write("See 'prebuild /usage' for help");
-                  m_Log.Write();
+            m_Log.Write("Prebuild v" + Version);
+            m_Log.Write("Copyright (c) 2004-2010");
+            m_Log.Write("Matthew Holmes (matthew@wildfiregames.com),");
+            m_Log.Write("Dan Moorehead (dan05a@gmail.com),");
+            m_Log.Write("David Hudson (jendave@yahoo.com),");
+            m_Log.Write("Rob Loach (http://www.robloach.net),");
+            m_Log.Write("C.J. Adams-Collier (cjac@colliertech.org),");
+            m_Log.Write("John Hurliman (john.hurliman@intel.com),");
+            m_Log.Write("WhiteCore build 2015 (greythane@gmail.com),");
+            m_Log.Write("OpenSimulator build 2017 Ubit Umarov,");
+            m_Log.Write ("");
+            m_Log.Write("See 'prebuild /usage' for help");
+            m_Log.Write();
 		}
 
 
 
         private void ProcessFile(string file)
         {
-            ProcessFile(file, this.m_Solutions);
+            ProcessFile(file, m_Solutions);
         }
 
         public void ProcessFile(ProcessNode node, SolutionNode parent)
         {
             if (node.IsValid)
             {
-                ArrayList list = new ArrayList();
+                List<SolutionNode> list = new List<SolutionNode>();
                 ProcessFile(node.Path, list);
 
                 foreach (SolutionNode solution in list)
@@ -365,8 +357,9 @@ namespace Prebuild.Core
         /// 
         /// </summary>
         /// <param name="file"></param>
+        /// <param name="solutions"></param>
         /// <returns></returns>
-		public void ProcessFile(string file, IList solutions)
+		public void ProcessFile(string file, IList<SolutionNode> solutions)
 		{
 			m_CurrentWorkingDirectory.Push();
             
@@ -384,20 +377,19 @@ namespace Prebuild.Core
 					return;
 				}
 
-				m_CurrentFile = path;
-				Helper.SetCurrentDir(Path.GetDirectoryName(path));
+			    Helper.SetCurrentDir(Path.GetDirectoryName(path));
 				
 				XmlTextReader reader = new XmlTextReader(path);
 
                 Core.Parse.Preprocessor pre = new Core.Parse.Preprocessor();
 
                 //register command line arguments as XML variables
-                IDictionaryEnumerator dict = m_CommandLine.GetEnumerator();
+			    IEnumerator<KeyValuePair<string, string>> dict = m_CommandLine.GetEnumerator();
                 while (dict.MoveNext())
                 {
-                    string name = dict.Key.ToString().Trim();
+                    string name = dict.Current.Key.Trim();
                     if (name.Length > 0)
-                        pre.RegisterVariable(name, dict.Value.ToString());
+                        pre.RegisterVariable(name, dict.Current.Value);
                 }
 
 				string xml = pre.Process(reader);//remove script and evaulate pre-proccessing to get schema-conforming XML
@@ -433,6 +425,10 @@ namespace Prebuild.Core
 				m_CurrentDoc = new XmlDocument();
 				try
 				{
+#if NO_VALIDATE
+					XmlReader validator = XmlReader.Create(new StringReader(xml));
+					m_CurrentDoc.Load(validator);
+#else
 					XmlValidatingReader validator = new XmlValidatingReader(new XmlTextReader(new StringReader(xml)));
 
 					//validate while reading from string into XmlDocument DOM structure in memory
@@ -441,6 +437,7 @@ namespace Prebuild.Core
 						validator.Schemas.Add(schema);
 					}
 					m_CurrentDoc.Load(validator);
+#endif
 				} 
 				catch(XmlException e) 
 				{
@@ -493,7 +490,7 @@ namespace Prebuild.Core
 					}
 					else if(dataNode is SolutionNode)
 					{
-						solutions.Add(dataNode);
+						solutions.Add((SolutionNode)dataNode);
 					}
 				}
 			}
@@ -552,7 +549,7 @@ namespace Prebuild.Core
 				return null;
 			}
 
-			NodeEntry ne = (NodeEntry)m_Nodes[node.Name];
+			NodeEntry ne = m_Nodes[node.Name];
 			return ne.Type;
 		}
 
@@ -577,7 +574,7 @@ namespace Prebuild.Core
 		/// <returns></returns>
 		public IDataNode ParseNode(XmlNode node, IDataNode parent, IDataNode preNode)
 		{
-			IDataNode dataNode = null;
+			IDataNode dataNode;
 
 			try
 			{
@@ -589,11 +586,11 @@ namespace Prebuild.Core
 				{
 					if(!m_Nodes.ContainsKey(node.Name))
 					{
-						//throw new XmlException("Unknown XML node: " + node.Name);
+						Console.WriteLine("WARNING: Unknown XML node: " + node.Name);
 						return null;
 					}
 
-					NodeEntry ne = (NodeEntry)m_Nodes[node.Name];
+					NodeEntry ne = m_Nodes[node.Name];
 					Type type = ne.Type;
 					//DataNodeAttribute dna = ne.Attribute;
 
@@ -607,6 +604,10 @@ namespace Prebuild.Core
 					dataNode = preNode;
 
 				dataNode.Parent = parent;
+                if (cmdlineTargetFramework && dataNode is ProjectNode)
+                {
+                    ((ProjectNode)dataNode).FrameworkVersion = m_TargetFramework;
+                }
 				dataNode.Parse(node);
 			}
 			catch(WarningException wex)
@@ -635,10 +636,8 @@ namespace Prebuild.Core
 		/// <param name="args">The args.</param>
 		public void Initialize(LogTargets target, string[] args)
 		{
-			m_Targets = new Hashtable();
-			CacheTargets(this.GetType().Assembly);
-			m_Nodes = new Hashtable();
-			CacheNodeTypes(this.GetType().Assembly);
+			CacheTargets(GetType().Assembly);
+			CacheNodeTypes(GetType().Assembly);
 			CacheVersion();
 
 			m_CommandLine = new CommandLineCollection(args);
@@ -663,7 +662,13 @@ namespace Prebuild.Core
 
 			m_CurrentWorkingDirectory = new CurrentDirectory();
 
-			m_Target = m_CommandLine["target"];
+            m_Target = m_CommandLine["target"];
+            m_Conditionals = m_CommandLine["conditionals"];
+            if(m_CommandLine["targetframework"] != null)
+            {
+                m_TargetFramework = (FrameworkVersion)Enum.Parse (typeof (FrameworkVersion), m_CommandLine["targetframework"]);
+                cmdlineTargetFramework = true;
+            }
 			m_Clean = m_CommandLine["clean"];
 			string removeDirs = m_CommandLine["removedir"];
 			if(removeDirs != null && removeDirs.Length == 0) 
@@ -679,9 +684,6 @@ namespace Prebuild.Core
 			m_PauseAfterFinish = m_CommandLine.WasPassed("pause");
 
 			LoadSchema();
-
-			m_Solutions = new ArrayList();
-			m_Refs = new StringCollection();
 		}
 
 		/// <summary>
@@ -714,17 +716,18 @@ namespace Prebuild.Core
 				m_Log.Write(LogType.Error, "The options /target and /clean cannot be passed together");
 				return;
 			}
-			else if(m_Target == null && m_Clean == null)
-			{
-				if(perfomedOtherTask) //finished
-				{
-					return;
-				}
-				m_Log.Write(LogType.Error, "Must pass either /target or /clean to process a Prebuild file");
-				return;
-			}
+		    
+            if(m_Target == null && m_Clean == null)
+		    {
+		        if(perfomedOtherTask) //finished
+		        {
+		            return;
+		        }
+		        m_Log.Write(LogType.Error, "Must pass either /target or /clean to process a Prebuild file");
+		        return;
+		    }
 
-			string file = "./prebuild.xml";
+		    string file = "./prebuild.xml";
 			if(m_CommandLine.WasPassed("file"))
 			{
 				file = m_CommandLine["file"];
@@ -763,11 +766,11 @@ namespace Prebuild.Core
 			}
 			else
 			{
-				if (!m_Targets.Contains(target)) {
+				if (!m_Targets.ContainsKey(target)) {
 					m_Log.Write(LogType.Error, "Unknown Target \"{0}\"", target);
 					return;
 				}
-				ITarget targ = (ITarget)m_Targets[target];
+				ITarget targ = m_Targets[target];
 
 				if(clean)
 				{
@@ -806,18 +809,19 @@ namespace Prebuild.Core
 		/// </remarks>
 		protected virtual void Dispose(bool disposing)
 		{
-			if (!this.disposed)
+			if (!disposed)
 			{
 				if (disposing)
 				{
-					if (this.m_Log != null)
+                    GC.SuppressFinalize(this);
+					if (m_Log != null)
 					{
-						this.m_Log.Close();
-						this.m_Log = null;
+						m_Log.Close();
+						m_Log = null;
 					}
 				}
 			}
-			this.disposed = true;
+			disposed = true;
 		}
 
 		/// <summary>
@@ -825,7 +829,7 @@ namespace Prebuild.Core
 		/// </summary>
 		~Kernel()
 		{
-			this.Dispose(false);
+			Dispose(false);
 		}
 		
 		/// <summary>

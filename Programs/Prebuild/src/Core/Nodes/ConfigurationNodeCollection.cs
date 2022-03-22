@@ -1,4 +1,4 @@
-#region BSD License
+﻿#region BSD License
 /*
 Copyright (c) 2004-2005 Matthew Holmes (matthew@wildfiregames.com), Dan Moorehead (dan05a@gmail.com)
 
@@ -23,62 +23,46 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY O
 */
 #endregion
 
-using System;
+using System.Collections.Generic;
 
-using Prebuild.Core.Attributes;
-
-namespace Prebuild.Core.Targets
+namespace Prebuild.Core.Nodes
 {
 	/// <summary>
-	/// 
+	/// Implements a specialized list of configuration nodes which allows for lookup via
+	/// configuration name and platform.
 	/// </summary>
-	[Target("vs2002")]
-	public class VS2002Target : VS2003Target
+	public class ConfigurationNodeCollection : List<ConfigurationNode>
 	{
-		#region Private Methods
+		#region Properties
 
-		private void SetVS2002()
-		{
-			this.SolutionVersion = "7.00";
-			this.ProductVersion = "7.0.9254";
-			this.SchemaVersion = "1.0";
-			this.VersionName = "2002";
-			this.Version = VSVersion.VS70;
-		}
-
-		#endregion
-
-		#region Public Methods
-
-		/// <summary>
-		/// Writes the specified kern.
-		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Write(Kernel kern)
-		{
-			SetVS2002();
-			base.Write(kern);
-		}
-
-		/// <summary>
-		/// Cleans the specified kern.
-		/// </summary>
-		/// <param name="kern">The kern.</param>
-		public override void Clean(Kernel kern)
-		{
-			SetVS2002();
-			base.Clean(kern);
-		}
-
-		/// <summary>
-		/// Gets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		public override string Name
+		public ConfigurationNode this[string nameAndPlatform]
 		{
 			get
 			{
-				return "vs2002";
+				foreach (ConfigurationNode configurationNode in this)
+				{
+					if (configurationNode.NameAndPlatform == nameAndPlatform)
+					{
+						return configurationNode;
+					}
+				}
+
+				return null;
+			}
+
+			set
+			{
+				// See if the node 
+				ConfigurationNode configurationNode = this[nameAndPlatform];
+
+				if (configurationNode != null)
+				{
+					this[IndexOf(configurationNode)] = value;
+				}
+				else
+				{
+					Add(value);
+				}
 			}
 		}
 
