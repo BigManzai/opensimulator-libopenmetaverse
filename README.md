@@ -19,6 +19,9 @@ Prerequisites (all Freely Available)
 Microsoft .NET Framework 4.6
 Visual Visual Studio (community) 2017
 
+Microsoft .NET Framework 4.8
+Visual Visual Studio (community) 2019+
+
 Compiling
 ---------
 1. Open Explorer and browse to the directory you extracted the source distribution to
